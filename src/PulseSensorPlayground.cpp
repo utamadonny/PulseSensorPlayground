@@ -209,8 +209,11 @@ void PulseSensorPlayground::setThreshold(int threshold, int sensorIndex) {
   void PulseSensorPlayground::outputBeat(int sensorIndex) {
     SerialOutput.outputBeat(Sensors, SensorCount, sensorIndex);
   }
-
-  void PulseSensorPlayground::outputToSerial(char s, int d) {
+  
+ void PulseSensorPlayground::outputToSerial(char s, int d) {
+    SerialOutput.outputToSerial(s,d);
+  }
+  void PulseSensorPlayground::outputToSerial(char s, float d) {
     SerialOutput.outputToSerial(s,d);
   }
 

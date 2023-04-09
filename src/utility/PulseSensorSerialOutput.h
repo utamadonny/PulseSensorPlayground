@@ -75,7 +75,9 @@ class PulseSensorSerialOutput {
     /*
         Write the given data prefixed by the given symbol.
     */
-    void outputToSerial(char symbol, int data);
+    void outputToSerial(char symbol, int data); 
+    void outputToSerial(char symbol, float data);
+
 
   private:
     // If non-null, the output stream to print to. If null, don't print.

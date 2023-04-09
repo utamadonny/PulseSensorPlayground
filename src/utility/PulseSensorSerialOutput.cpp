@@ -117,4 +117,12 @@ void PulseSensorSerialOutput::outputToSerial(char symbol, int data) {
   pOutput->print(symbol);
   pOutput->println(data);
 }
+void PulseSensorSerialOutput::outputToSerial(char symbol, float data) {
+  if (!pOutput) {
+    return;  // no serial output object has been set.
+  }
+
+  pOutput->print(symbol);
+  pOutput->println(data);
+}
 

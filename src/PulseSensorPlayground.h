@@ -388,6 +388,7 @@ class PulseSensorPlayground {
        Used exclusively with the Pulse Sensor Processing sketch.
     */
     void outputToSerial(char symbol, int data);
+    void outputToSerial(char symbol, float data);
 #endif
 
     /*
