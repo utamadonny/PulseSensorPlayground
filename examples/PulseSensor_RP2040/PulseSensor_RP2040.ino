@@ -2,15 +2,14 @@
    Code to detect pulses from the PulseSensor,
    using an interrupt service routine.
 
-   This example is made to target boards in the nRF52 family.
-   Install the dependent library. Go to Sketch > Include Library > Mange Libraries.
-   When the Library Manager loads, search for NRF52_TimerInterrupt, if you are using 
-   an Adafruit or Seeed nRF52 platform. 
-   If you are using MBED, like the Nano 33 BLE, search for NRF52_MBED_TimerInterrupt.
-
-   Install the latest version.
-
-   This is a prototype version of PulseSensor_nRF52.ino use at your own risk.
+   This code is designed to target an RP2040 microcontroller
+   You may need to ajust the number in the RPI_PICO_Timer parameter, maybe?
+   If you have trouble, please post an issue on github
+   
+   Mostly works. Tested on:
+        Adafruit Feather RP2040
+        Raspberry Pi Pico H
+      
 
    Copyright World Famous Electronics LLC - see LICENSE
    Contributors:
@@ -24,34 +23,17 @@
    This software is not intended for medical use.
 */
 
-/*
-    If you are using an Adafruit or Seeed nRF52 platform,
-    uncomment the next line to use the NRF52TimerInterrupt library
-*/
-#include "NRF52TimerInterrupt.h"
 
 /*
-    If you are using an MBED nRF52 platform, like Nano 33 BLE,
-    uncomment the next lines to use the NRF52_MBED_TimerInterrupt library
-*/
-// #include <NRF52_MBED_TimerInterrupt.h>
-// #include <NRF52_MBED_TimerInterrupt.hpp>
-// #include <NRF52_MBED_ISR_Timer.h>
-// #include <NRF52_MBED_ISR_Timer.hpp>
+ *    The TimerInterrupt library 
+ *    https://github.com/khoih-prog/RPI_PICO_TimerInterrupt
+ *    Set the sample rate to 500Hz
+ *    Keep the name sampleTimer! Don't change it, cause it's used in the library!
+ */
 
-#define TIMER3_INTERVAL_US        2000 // critical fine tuning here!
-
-/*
-    If you are using an Adafruit or Seeed nRF52 platform,
-    uncomment the next line to use the NRF52TimerInterrupt library
-*/
-NRF52Timer sampleTimer(NRF_TIMER_3);
-
-/*
-    If you are using an MBED nRF52 platform, like Nano 33 BLE,
-    uncomment the next lines to use the NRF52_MBED_TimerInterrupt library
-*/
-// NRF52_MBED_Timer sampleTimer(NRF_TIMER_3);
+#include "RPi_Pico_TimerInterrupt.h"
+#define SAMPLE_INTERVAL_US 2000L
+RPI_PICO_Timer sampleTimer(0); // the paramater may need to change, depending?
 
 /*
    Every Sketch that uses the PulseSensor Playground must
@@ -64,9 +46,16 @@ NRF52Timer sampleTimer(NRF_TIMER_3);
 #define USE_ARDUINO_INTERRUPTS true
 #include <PulseSensorPlayground.h>
 
-void Timer3_ISR(){
+/*
+ *  Declare the interrupt service routine
+ *  This will be used in setup as the interrupt callback
+ */
+boolean sampleTimer_ISR(struct repeating_timer *t){ 
+  (void) t;
   PulseSensorPlayground::OurThis->onSampleTime();
+  return true;
 }
+
 /*
    The format of our output.
 
@@ -100,8 +89,8 @@ const int OUTPUT_TYPE = SERIAL_PLOTTER;
       Adjust as neccesary.
 */
 const int PULSE_INPUT = A0;
-const int PULSE_BLINK = 13;
-const int PULSE_FADE = 12;
+const int PULSE_BLINK = LED_BUILTIN;
+const int PULSE_FADE = 7;
 const int THRESHOLD = 550;   // Adjust this number to avoid noise when idle
 
 /*
@@ -111,22 +100,27 @@ PulseSensorPlayground pulseSensor;
 
 void setup() {
   /*
-     115200 provides about 11 bytes per millisecond.
+     Use 115200 baud because that's what the Processing Sketch expects to read,
+     and because that speed provides about 11 bytes per millisecond.
+
      If we used a slower baud rate, we'd likely write bytes faster than
-     they can be transmitted,.
+     they can be transmitted, which would mess up the timing
+     of readSensor() calls, which would make the pulse measurement
+     not work properly.
   */
   Serial.begin(115200);
-  while (!Serial && millis() < 5000);
-
+//  Stream &myPort = (Stream &)Serial;
   // Configure the PulseSensor manager.
 
   pulseSensor.analogInput(PULSE_INPUT);
   pulseSensor.blinkOnPulse(PULSE_BLINK);
   pulseSensor.fadeOnPulse(PULSE_FADE);
-  pulseSensor.setThreshold(THRESHOLD);
 
   pulseSensor.setSerial(Serial);
   pulseSensor.setOutputType(OUTPUT_TYPE);
+  pulseSensor.setThreshold(THRESHOLD);
+
+  analogReadResolution(10);
 
   // Now that everything is ready, start reading the PulseSensor signal.
   if (!pulseSensor.begin()) {
@@ -142,16 +136,21 @@ void setup() {
       // Flash the led to show things didn't work.
       digitalWrite(PULSE_BLINK, LOW);
       delay(50);
+      Serial.println('!');
       digitalWrite(PULSE_BLINK, HIGH);
       delay(50);
     }
   }
-  if (sampleTimer.attachInterruptInterval(TIMER3_INTERVAL_US, Timer3_ISR)){
-    Serial.println(F("Starting Timer 3"));
-  } else {
-    Serial.println(F("Timer 3 Startup failed!"));
+  /*  This starts the sample timer interrupt
+   *  Use pause() and resume() to start and stop sampling on the fly
+   *  Check Resources folder in the library for more tools
+   */
+  if (!sampleTimer.attachInterruptInterval(SAMPLE_INTERVAL_US, sampleTimer_ISR)){
+    Serial.println("Can't set ISR! Select another timer?");
   }
-}
+  
+}  
+
 
 void loop() {
   /*
